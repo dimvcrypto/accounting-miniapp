@@ -429,8 +429,7 @@
       const res = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacts: payload })
-      });
+        body: JSON.stringify({ contacts: payload, imported_by: tg?.initDataUnsafe?.user?.first_name || '' });
 
       setProgress(100);
 

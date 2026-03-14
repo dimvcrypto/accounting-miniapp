@@ -77,7 +77,6 @@
     .section { display: none; }
     .section.active { display: block; }
 
-    /* === ВИТРИНА === */
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -129,7 +128,6 @@
     .row:last-child { border-bottom: none; }
     .row-label { color: var(--muted); }
 
-    /* === КОНТАКТЫ === */
     .import-block {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -260,7 +258,6 @@
   <button class="tab" onclick="switchTab('contacts')">Контакты</button>
 </div>
 
-<!-- ВИТРИНА -->
 <div class="section active" id="tab-dashboard">
 
   <div class="grid-2">
@@ -286,14 +283,22 @@
   </div>
 
   <div class="card-full">
-    <div class="card-label" style="margin-bottom:12px">Обороты за месяц</div>
+    <div class="card-label" style="margin-bottom:12px">Обороты за месяц · ФЛ / ЮЛ</div>
     <div class="row">
-      <span class="row-label">Физлица</span>
-      <span id="val-phys">—</span>
+      <span class="row-label">Дебет ФЛ</span>
+      <span id="val-phys-debit">—</span>
     </div>
     <div class="row">
-      <span class="row-label">Юрлица</span>
-      <span id="val-legal">—</span>
+      <span class="row-label">Дебет ЮЛ</span>
+      <span id="val-legal-debit">—</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Кредит ФЛ</span>
+      <span id="val-phys-credit">—</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Кредит ЮЛ</span>
+      <span id="val-legal-credit">—</span>
     </div>
     <div class="row">
       <span class="row-label">Обновлено</span>
@@ -307,7 +312,6 @@
 
 </div>
 
-<!-- КОНТАКТЫ -->
 <div class="section" id="tab-contacts">
 
   <div class="import-block">
@@ -418,8 +422,10 @@
       document.getElementById('val-cash').textContent = formatMoney(data.cash);
       document.getElementById('val-debit').textContent = formatMoney(data.debit);
       document.getElementById('val-credit').textContent = formatMoney(data.credit);
-      document.getElementById('val-phys').textContent = formatMoney(data.phys);
-      document.getElementById('val-legal').textContent = formatMoney(data.legal);
+      document.getElementById('val-phys-debit').textContent = formatMoney(data.physDebit);
+      document.getElementById('val-legal-debit').textContent = formatMoney(data.legalDebit);
+      document.getElementById('val-phys-credit').textContent = formatMoney(data.physCredit);
+      document.getElementById('val-legal-credit').textContent = formatMoney(data.legalCredit);
       document.getElementById('val-updated').textContent = data.updated || '—';
 
     } catch (e) {
@@ -535,8 +541,10 @@
     document.getElementById('val-cash').textContent = '...';
     document.getElementById('val-debit').textContent = '...';
     document.getElementById('val-credit').textContent = '...';
-    document.getElementById('val-phys').textContent = '...';
-    document.getElementById('val-legal').textContent = '...';
+    document.getElementById('val-phys-debit').textContent = '...';
+    document.getElementById('val-legal-debit').textContent = '...';
+    document.getElementById('val-phys-credit').textContent = '...';
+    document.getElementById('val-legal-credit').textContent = '...';
     document.getElementById('val-updated').textContent = 'Загрузка...';
   }
 
@@ -545,8 +553,10 @@
     document.getElementById('val-cash').textContent = 'Ошибка';
     document.getElementById('val-debit').textContent = 'Ошибка';
     document.getElementById('val-credit').textContent = 'Ошибка';
-    document.getElementById('val-phys').textContent = 'Ошибка';
-    document.getElementById('val-legal').textContent = 'Ошибка';
+    document.getElementById('val-phys-debit').textContent = 'Ошибка';
+    document.getElementById('val-legal-debit').textContent = 'Ошибка';
+    document.getElementById('val-phys-credit').textContent = 'Ошибка';
+    document.getElementById('val-legal-credit').textContent = 'Ошибка';
     document.getElementById('val-updated').textContent = message || 'Ошибка загрузки';
   }
 </script>

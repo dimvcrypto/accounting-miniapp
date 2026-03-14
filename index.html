@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Бухгалтерия</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --accent: #e8c547;
+      --accent2: #4ade80;
+      --text: #f0f0f0;
+      --muted: #666;
+      --danger: #f87171;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      font-size: 13px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    header span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .tab.active {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    /* === ВИТРИНА === */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+    }
+
+    .card-label {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .card-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--accent);
+    }
+
+    .card-value.green { color: var(--accent2); }
+    .card-value.red { color: var(--danger); }
+    .card-value.small { font-size: 13px; }
+
+    .card-full {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .row:last-child { border-bottom: none; }
+    .row-label { color: var(--muted); }
+
+    /* === КОНТАКТЫ === */
+    .import-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 24px 16px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .import-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+
+    .import-title {
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .import-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 12px 24px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      width: 100%;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      margin-top: 8px;
+    }
+
+    .status-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 14px;
+      font-size: 12px;
+      color: var(--muted);
+      display: none;
+    }
+
+    .status-block.visible { display: block; }
+
+    .status-line {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+    }
+
+    .status-ok { color: var(--accent2); }
+    .status-err { color: var(--danger); }
+    .status-warn { color: var(--accent); }
+
+    .progress {
+      width: 100%;
+      height: 3px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 12px 0;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .note {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.6;
+      padding: 10px;
+      border-left: 2px solid var(--border);
+      margin-top: 12px;
+    }
+
+    /* loader */
+    .loader {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>▸ Бухгалтерия</h1>
+  <span id="user-name">—</span>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('dashboard')">Обзор</button>
+  <button class="tab" onclick="switchTab('contacts')">Контакты</button>
+</div>
+
+<!-- ВИТРИНА -->
+<div class="section active" id="tab-dashboard">
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Баланс счетов</div>
+      <div class="card-value" id="val-balance">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Наличные</div>
+      <div class="card-value" id="val-cash">—</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-label">Дебет (мес.)</div>
+      <div class="card-value red" id="val-debit">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Кредит (мес.)</div>
+      <div class="card-value green" id="val-credit">—</div>
+    </div>
+  </div>
+
+  <div class="card-full">
+    <div class="card-label" style="margin-bottom:12px">Обороты за месяц</div>
+    <div class="row">
+      <span class="row-label">Физлица</span>
+      <span id="val-phys">—</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Юрлица</span>
+      <span id="val-legal">—</span>
+    </div>
+    <div class="row">
+      <span class="row-label">Обновлено</span>
+      <span id="val-updated" style="color:var(--muted);font-size:11px">—</span>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:10px 0;font-size:11px;color:var(--muted)">
+    Данные из Google Sheets · только просмотр
+  </div>
+
+</div>
+
+<!-- КОНТАКТЫ -->
+<div class="section" id="tab-contacts">
+
+  <div class="import-block">
+    <div class="import-icon">📋</div>
+    <div class="import-title">Импорт контактов</div>
+    <div class="import-desc">
+      Нажми кнопку — телефон запросит доступ к контактам.<br>
+      Все номера будут нормализованы и сохранены в Записную книжку.
+    </div>
+    <button class="btn" id="btn-import" onclick="importContacts()">
+      Импортировать контакты
+    </button>
+    <button class="btn btn-outline" onclick="checkSupport()">
+      Проверить поддержку
+    </button>
+  </div>
+
+  <div class="status-block" id="status-block">
+    <div class="status-line">
+      <span>Статус</span>
+      <span id="st-status" class="status-warn">—</span>
+    </div>
+    <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="status-line">
+      <span>Контактов найдено</span>
+      <span id="st-found">—</span>
+    </div>
+    <div class="status-line">
+      <span>С телефоном</span>
+      <span id="st-withphone">—</span>
+    </div>
+    <div class="status-line">
+      <span>Отправлено</span>
+      <span id="st-sent" class="status-ok">—</span>
+    </div>
+  </div>
+
+  <div class="note">
+    Контакт → нормализация номера → Google Sheets «Записная книжка».<br>
+    Дубли не проверяются на этом этапе.
+  </div>
+
+</div>
+
+<script>
+  const WEBHOOK_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/contacts';
+
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    const user = tg.initDataUnsafe?.user;
+    if (user) {
+      document.getElementById('user-name').textContent =
+        user.first_name + (user.last_name ? ' ' + user.last_name : '');
+    }
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', ['dashboard','contacts'][i] === name);
+    });
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  function checkSupport() {
+    const block = document.getElementById('status-block');
+    block.classList.add('visible');
+    const supported = 'contacts' in navigator && navigator.contacts?.select;
+    document.getElementById('st-status').textContent = supported ? '✓ Поддерживается' : '✗ Не поддерживается';
+    document.getElementById('st-status').className = supported ? 'status-ok' : 'status-err';
+    document.getElementById('st-found').textContent = supported ? 'API доступен' : 'Используй Android Chrome или iOS Safari';
+    document.getElementById('st-withphone').textContent = '—';
+    document.getElementById('st-sent').textContent = '—';
+  }
+
+  async function importContacts() {
+    const btn = document.getElementById('btn-import');
+    const block = document.getElementById('status-block');
+    const bar = document.getElementById('progress-bar');
+
+    block.classList.add('visible');
+    setStatus('Запрашиваю доступ...', 'warn');
+    setProgress(10);
+
+    // Проверка поддержки
+    if (!('contacts' in navigator) || !navigator.contacts?.select) {
+      setStatus('✗ API не поддерживается', 'err');
+      document.getElementById('st-found').textContent = 'Нужен Android Chrome или iOS Safari 14.5+';
+      return;
+    }
+
+    btn.disabled = true;
+
+    try {
+      const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+      setProgress(40);
+
+      const total = contacts.length;
+      document.getElementById('st-found').textContent = total;
+      setStatus('Обрабатываю...', 'warn');
+
+      // Фильтр — только с телефоном
+      const withPhone = contacts.filter(c => c.tel && c.tel.length > 0);
+      document.getElementById('st-withphone').textContent = withPhone.length;
+      setProgress(60);
+
+      // Формируем payload
+      const payload = withPhone.map(c => ({
+        name: (c.name && c.name[0]) ? c.name[0] : '',
+        phone: c.tel[0]
+      }));
+
+      setStatus('Отправляю...', 'warn');
+      setProgress(80);
+
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contacts: payload })
+      });
+
+      setProgress(100);
+
+      if (res.ok) {
+        setStatus('✓ Готово', 'ok');
+        document.getElementById('st-sent').textContent = payload.length + ' контактов';
+        if (tg) tg.showAlert('Импортировано ' + payload.length + ' контактов');
+      } else {
+        setStatus('✗ Ошибка сервера', 'err');
+        document.getElementById('st-sent').textContent = 'HTTP ' + res.status;
+      }
+
+    } catch (e) {
+      setStatus('✗ Отменено', 'err');
+      document.getElementById('st-sent').textContent = e.message || 'Пользователь отменил';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function setStatus(text, type) {
+    const el = document.getElementById('st-status');
+    el.textContent = text;
+    el.className = 'status-' + type;
+  }
+
+  function setProgress(pct) {
+    document.getElementById('progress-bar').style.width = pct + '%';
+  }
+</script>
+
+</body>
+</html>

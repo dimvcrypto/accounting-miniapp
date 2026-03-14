@@ -233,7 +233,6 @@
       margin-top: 12px;
     }
 
-    /* loader */
     .loader {
       display: inline-block;
       width: 10px;
@@ -355,50 +354,94 @@
 
 <script>
   const WEBHOOK_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/contacts';
+  const DASHBOARD_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/dashboard';
 
   const tg = window.Telegram?.WebApp;
+  const tgUser = tg?.initDataUnsafe?.user || null;
+
   if (tg) {
     tg.ready();
     tg.expand();
-    const user = tg.initDataUnsafe?.user;
-    if (user) {
+
+    if (tgUser) {
       document.getElementById('user-name').textContent =
-        user.first_name + (user.last_name ? ' ' + user.last_name : '');
+        [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || '—';
     }
   }
 
+  document.addEventListener('DOMContentLoaded', () => {
+    loadDashboard();
+  });
+
   function switchTab(name) {
     document.querySelectorAll('.tab').forEach((t, i) => {
-      t.classList.toggle('active', ['dashboard','contacts'][i] === name);
+      t.classList.toggle('active', ['dashboard', 'contacts'][i] === name);
     });
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
+
+    if (name === 'dashboard') {
+      loadDashboard();
+    }
   }
 
   function checkSupport() {
     const block = document.getElementById('status-block');
     block.classList.add('visible');
-    const supported = 'contacts' in navigator && navigator.contacts?.select;
+
+    const supported = 'contacts' in navigator && !!navigator.contacts?.select;
+
     document.getElementById('st-status').textContent = supported ? '✓ Поддерживается' : '✗ Не поддерживается';
     document.getElementById('st-status').className = supported ? 'status-ok' : 'status-err';
-    document.getElementById('st-found').textContent = supported ? 'API доступен' : 'Используй Android Chrome или iOS Safari';
+    document.getElementById('st-found').textContent = supported ? 'API доступен' : 'Нужен Android Chrome или iOS Safari 14.5+';
     document.getElementById('st-withphone').textContent = '—';
     document.getElementById('st-sent').textContent = '—';
+    setProgress(0);
+  }
+
+  async function loadDashboard() {
+    try {
+      setDashboardLoading();
+
+      const res = await fetch(DASHBOARD_URL, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!res.ok) {
+        throw new Error('HTTP ' + res.status);
+      }
+
+      const data = await res.json();
+
+      document.getElementById('val-balance').textContent = formatMoney(data.balance);
+      document.getElementById('val-cash').textContent = formatMoney(data.cash);
+      document.getElementById('val-debit').textContent = formatMoney(data.debit);
+      document.getElementById('val-credit').textContent = formatMoney(data.credit);
+      document.getElementById('val-phys').textContent = formatMoney(data.phys);
+      document.getElementById('val-legal').textContent = formatMoney(data.legal);
+      document.getElementById('val-updated').textContent = data.updated || '—';
+
+    } catch (e) {
+      console.error('Dashboard load error:', e);
+      setDashboardError(e.message || 'Ошибка загрузки');
+    }
   }
 
   async function importContacts() {
     const btn = document.getElementById('btn-import');
     const block = document.getElementById('status-block');
-    const bar = document.getElementById('progress-bar');
 
     block.classList.add('visible');
     setStatus('Запрашиваю доступ...', 'warn');
     setProgress(10);
 
-    // Проверка поддержки
     if (!('contacts' in navigator) || !navigator.contacts?.select) {
       setStatus('✗ API не поддерживается', 'err');
       document.getElementById('st-found').textContent = 'Нужен Android Chrome или iOS Safari 14.5+';
+      document.getElementById('st-withphone').textContent = '—';
+      document.getElementById('st-sent').textContent = '—';
+      setProgress(0);
       return;
     }
 
@@ -406,46 +449,66 @@
 
     try {
       const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
-      setProgress(40);
+      const total = Array.isArray(contacts) ? contacts.length : 0;
 
-      const total = contacts.length;
+      setProgress(40);
       document.getElementById('st-found').textContent = total;
       setStatus('Обрабатываю...', 'warn');
 
-      // Фильтр — только с телефоном
-      const withPhone = contacts.filter(c => c.tel && c.tel.length > 0);
+      const withPhone = contacts.filter(c => Array.isArray(c.tel) && c.tel.length > 0);
       document.getElementById('st-withphone').textContent = withPhone.length;
-      setProgress(60);
 
-      // Формируем payload
       const payload = withPhone.map(c => ({
-        name: (c.name && c.name[0]) ? c.name[0] : '',
+        name: Array.isArray(c.name) && c.name[0] ? c.name[0] : '',
         phone: c.tel[0]
       }));
 
+      setProgress(70);
       setStatus('Отправляю...', 'warn');
-      setProgress(80);
 
       const res = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contacts: payload, imported_by: tg?.initDataUnsafe?.user?.first_name || '' })
+        body: JSON.stringify({
+          contacts: payload,
+          imported_by: tgUser?.first_name || '',
+          user_id: tgUser?.id || '',
+          username: tgUser?.username || ''
+        })
       });
+
+      let result = {};
+      try {
+        result = await res.json();
+      } catch (_) {
+        result = {};
+      }
 
       setProgress(100);
 
       if (res.ok) {
+        const importedCount = result.imported ?? payload.length;
+        const totalFound = result.total_found ?? total;
+        const withPhoneCount = result.with_phone ?? withPhone.length;
+
         setStatus('✓ Готово', 'ok');
-        document.getElementById('st-sent').textContent = payload.length + ' контактов';
-        if (tg) tg.showAlert('Импортировано ' + payload.length + ' контактов');
+        document.getElementById('st-found').textContent = totalFound;
+        document.getElementById('st-withphone').textContent = withPhoneCount;
+        document.getElementById('st-sent').textContent = importedCount + ' контактов';
+
+        if (tg) {
+          tg.showAlert('Импортировано ' + importedCount + ' контактов');
+        }
       } else {
         setStatus('✗ Ошибка сервера', 'err');
-        document.getElementById('st-sent').textContent = 'HTTP ' + res.status;
+        document.getElementById('st-sent').textContent = result.message || ('HTTP ' + res.status);
       }
 
     } catch (e) {
+      console.error('Import contacts error:', e);
       setStatus('✗ Отменено', 'err');
       document.getElementById('st-sent').textContent = e.message || 'Пользователь отменил';
+      setProgress(0);
     } finally {
       btn.disabled = false;
     }
@@ -459,6 +522,32 @@
 
   function setProgress(pct) {
     document.getElementById('progress-bar').style.width = pct + '%';
+  }
+
+  function formatMoney(value) {
+    const num = Number(value ?? 0);
+    if (!Number.isFinite(num)) return '0 ₽';
+    return new Intl.NumberFormat('ru-RU').format(num) + ' ₽';
+  }
+
+  function setDashboardLoading() {
+    document.getElementById('val-balance').textContent = '...';
+    document.getElementById('val-cash').textContent = '...';
+    document.getElementById('val-debit').textContent = '...';
+    document.getElementById('val-credit').textContent = '...';
+    document.getElementById('val-phys').textContent = '...';
+    document.getElementById('val-legal').textContent = '...';
+    document.getElementById('val-updated').textContent = 'Загрузка...';
+  }
+
+  function setDashboardError(message) {
+    document.getElementById('val-balance').textContent = 'Ошибка';
+    document.getElementById('val-cash').textContent = 'Ошибка';
+    document.getElementById('val-debit').textContent = 'Ошибка';
+    document.getElementById('val-credit').textContent = 'Ошибка';
+    document.getElementById('val-phys').textContent = 'Ошибка';
+    document.getElementById('val-legal').textContent = 'Ошибка';
+    document.getElementById('val-updated').textContent = message || 'Ошибка загрузки';
   }
 </script>
 

@@ -572,6 +572,7 @@
 
   <div class="note">
     Синхронизация Google берёт контакты из Google-аккаунта пользователя.<br>
+    На iPhone авторизация открывается во внешнем браузере.<br>
     Ручной режим добавляет один контакт напрямую в записную книжку.
   </div>
 </div>
@@ -646,6 +647,26 @@
     }
   }
 
+  function openAuthOutsideMiniApp(url) {
+    if (window.Telegram?.WebApp?.openLink) {
+      try {
+        window.Telegram.WebApp.openLink(url);
+        return true;
+      } catch (e) {
+        console.error('Telegram openLink error:', e);
+      }
+    }
+
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return true;
+    } catch (e) {
+      console.error('window.open error:', e);
+    }
+
+    return false;
+  }
+
   async function startGoogleContactsSync() {
     const btn = document.getElementById('btn-google-sync');
     const block = document.getElementById('status-block');
@@ -683,10 +704,16 @@
       }
 
       setProgress(60);
-      setStatus('Перенаправляю в Google...', 'warn');
-      document.getElementById('st-withphone').textContent = 'Ожидание авторизации';
+      setStatus('Открываю Google во внешнем браузере...', 'warn');
+      document.getElementById('st-withphone').textContent = 'Продолжи авторизацию снаружи Telegram';
 
-      window.location.href = data.authUrl;
+      const opened = openAuthOutsideMiniApp(data.authUrl);
+      if (!opened) {
+        throw new Error('Не удалось открыть внешний браузер');
+      }
+
+      document.getElementById('st-sent').textContent = 'После входа вернись в Telegram';
+      btn.disabled = false;
     } catch (e) {
       console.error('Google sync start error:', e);
       setStatus('✗ Ошибка запуска', 'err');

@@ -15,6 +15,9 @@
       --text: #ffffff;
       --muted: #555;
       --danger: #f87171;
+      --success: #34d399;
+      --success-border: rgba(52, 211, 153, 0.28);
+      --error-border: rgba(248, 113, 113, 0.28);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -121,10 +124,12 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 12px;
       padding: 8px 0;
       border-bottom: 1px solid var(--border);
       font-size: 12px;
     }
+
     .row:last-child { border-bottom: none; }
     .row-label { color: var(--muted); }
 
@@ -170,8 +175,10 @@
       letter-spacing: 0.12em;
       text-transform: uppercase;
       cursor: pointer;
-      transition: opacity 0.15s;
+      transition: opacity 0.15s, background 0.15s, border-color 0.15s, color 0.15s;
       width: 100%;
+      text-decoration: none;
+      text-align: center;
     }
 
     .btn:hover { opacity: 0.85; }
@@ -184,6 +191,13 @@
       margin-top: 8px;
     }
 
+    .btn-danger-outline {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      margin-top: 8px;
+    }
+
     .status-block {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -192,6 +206,7 @@
       font-size: 12px;
       color: var(--muted);
       display: none;
+      margin-bottom: 16px;
     }
 
     .status-block.visible { display: block; }
@@ -199,6 +214,7 @@
     .status-line {
       display: flex;
       justify-content: space-between;
+      gap: 12px;
       padding: 4px 0;
     }
 
@@ -241,6 +257,89 @@
       animation: spin 0.6s linear infinite;
       margin-right: 6px;
       vertical-align: middle;
+    }
+
+    .result-card {
+      display: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 16px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    .result-card.visible {
+      display: block;
+    }
+
+    .result-card.success {
+      border-color: var(--success-border);
+      box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.08);
+    }
+
+    .result-card.error {
+      border-color: var(--error-border);
+      box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.08);
+    }
+
+    .result-icon {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: bold;
+      border: 1px solid var(--border);
+    }
+
+    .result-card.success .result-icon {
+      color: var(--success);
+      border-color: var(--success-border);
+      background: rgba(52, 211, 153, 0.08);
+    }
+
+    .result-card.error .result-icon {
+      color: var(--danger);
+      border-color: var(--error-border);
+      background: rgba(248, 113, 113, 0.08);
+    }
+
+    .result-title {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .result-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+
+    .result-meta {
+      text-align: left;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 14px;
+    }
+
+    .result-meta .row {
+      font-size: 11px;
+      padding: 7px 0;
+    }
+
+    .result-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -314,6 +413,32 @@
 
 <div class="section" id="tab-contacts">
 
+  <div class="result-card" id="sync-result">
+    <div class="result-icon" id="sync-result-icon">✓</div>
+    <div class="result-title" id="sync-result-title">Контакты синхронизированы</div>
+    <div class="result-desc" id="sync-result-desc">Импорт завершён успешно.</div>
+
+    <div class="result-meta">
+      <div class="row">
+        <span class="row-label">Статус</span>
+        <span id="sync-result-status">Успешно</span>
+      </div>
+      <div class="row">
+        <span class="row-label">Импортировано</span>
+        <span id="sync-result-imported">0</span>
+      </div>
+      <div class="row">
+        <span class="row-label">Источник</span>
+        <span id="sync-result-source">Google Contacts</span>
+      </div>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn" onclick="closeSyncResult()">Вернуться в интерфейс</button>
+      <button class="btn btn-outline" id="sync-repeat-btn" onclick="repeatGoogleContactsSync()">Синхронизировать снова</button>
+    </div>
+  </div>
+
   <div class="import-block">
     <div class="import-icon">☁️</div>
     <div class="import-title">Синхронизация контактов</div>
@@ -372,12 +497,14 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     loadDashboard();
+    applySyncResultFromQuery();
   });
 
   function switchTab(name) {
     document.querySelectorAll('.tab').forEach((t, i) => {
       t.classList.toggle('active', ['dashboard', 'contacts'][i] === name);
     });
+
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
 
@@ -421,6 +548,9 @@
     const btn = document.getElementById('btn-google-sync');
     const block = document.getElementById('status-block');
 
+    hideSyncResult();
+    switchTab('contacts');
+
     block.classList.add('visible');
     setStatus('Запрашиваю ссылку...', 'warn');
     document.getElementById('st-found').textContent = 'Google Contacts';
@@ -460,6 +590,83 @@
       setProgress(0);
       btn.disabled = false;
     }
+  }
+
+  function repeatGoogleContactsSync() {
+    startGoogleContactsSync();
+  }
+
+  function applySyncResultFromQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const sync = params.get('sync');
+    const imported = params.get('imported');
+    const source = params.get('source') || 'Google Contacts';
+    const error = params.get('message') || params.get('error');
+    const tab = params.get('tab');
+
+    if (sync !== 'success' && sync !== 'error') {
+      return;
+    }
+
+    switchTab('contacts');
+
+    const resultCard = document.getElementById('sync-result');
+    const statusBlock = document.getElementById('status-block');
+    const btn = document.getElementById('btn-google-sync');
+
+    btn.disabled = false;
+    statusBlock.classList.remove('visible');
+    resultCard.classList.add('visible');
+    document.getElementById('sync-result-source').textContent = source;
+
+    if (sync === 'success') {
+      resultCard.className = 'result-card visible success';
+      document.getElementById('sync-result-icon').textContent = '✓';
+      document.getElementById('sync-result-title').textContent = 'Контакты синхронизированы';
+      document.getElementById('sync-result-desc').textContent = 'Импорт завершён успешно. Контакты загружены в записную книжку.';
+      document.getElementById('sync-result-status').textContent = 'Успешно';
+      document.getElementById('sync-result-imported').textContent = imported ?? '0';
+
+      setStatus('✓ Успешно', 'ok');
+      document.getElementById('st-withphone').textContent = 'Синхронизация завершена';
+      document.getElementById('st-sent').textContent = `Импортировано: ${imported ?? '0'}`;
+      setProgress(100);
+    } else {
+      resultCard.className = 'result-card visible error';
+      document.getElementById('sync-result-icon').textContent = '✕';
+      document.getElementById('sync-result-title').textContent = 'Ошибка синхронизации';
+      document.getElementById('sync-result-desc').textContent = error || 'Во время синхронизации произошла ошибка. Попробуй ещё раз.';
+      document.getElementById('sync-result-status').textContent = 'Ошибка';
+      document.getElementById('sync-result-imported').textContent = '0';
+
+      setStatus('✗ Ошибка', 'err');
+      document.getElementById('st-withphone').textContent = 'Синхронизация не завершена';
+      document.getElementById('st-sent').textContent = error || 'Ошибка';
+      setProgress(0);
+    }
+
+    statusBlock.classList.add('visible');
+    clearSyncQueryParams();
+  }
+
+  function closeSyncResult() {
+    hideSyncResult();
+    const btn = document.getElementById('btn-google-sync');
+    btn.disabled = false;
+    switchTab('contacts');
+  }
+
+  function hideSyncResult() {
+    const resultCard = document.getElementById('sync-result');
+    resultCard.className = 'result-card';
+  }
+
+  function clearSyncQueryParams() {
+    const url = new URL(window.location.href);
+    ['sync', 'imported', 'source', 'message', 'error', 'tab'].forEach(param => {
+      url.searchParams.delete(param);
+    });
+    window.history.replaceState({}, '', url.pathname + url.search + url.hash);
   }
 
   function setStatus(text, type) {

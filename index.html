@@ -92,6 +92,7 @@
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 14px;
+      min-width: 0;
     }
 
     .card-label {
@@ -106,6 +107,7 @@
       font-size: 18px;
       font-weight: bold;
       color: var(--accent);
+      word-break: break-word;
     }
 
     .card-value.green { color: var(--accent2); }
@@ -397,12 +399,6 @@
       flex-direction: column;
       gap: 8px;
     }
-
-    @media (max-width: 420px) {
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
-    }
   </style>
 </head>
 <body>
@@ -639,7 +635,7 @@
       document.getElementById('val-legal-debit').textContent = formatMoney(data.legalDebit);
       document.getElementById('val-phys-credit').textContent = formatMoney(data.physCredit);
       document.getElementById('val-legal-credit').textContent = formatMoney(data.legalCredit);
-      document.getElementById('val-updated').textContent = data.updated || '—';
+      document.getElementById('val-updated').textContent = formatUpdatedMsk(data.updated);
     } catch (e) {
       console.error('Dashboard load error:', e);
       setDashboardError(e.message || 'Ошибка загрузки');
@@ -905,6 +901,32 @@
     }
 
     return digits;
+  }
+
+  function formatUpdatedMsk(value) {
+    if (!value) return '—';
+
+    const raw = String(value).trim();
+
+    const isoDate = new Date(raw);
+    if (!Number.isNaN(isoDate.getTime())) {
+      return new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Europe/Moscow',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).format(isoDate).replace(',', '') + ' МСК';
+    }
+
+    const match = raw.match(/^(\d{2})\.(\d{2})\.(\d{4})[ ,]+(\d{2}):(\d{2})$/);
+    if (match) {
+      return `${match[1]}.${match[2]}.${match[3]} ${match[4]}:${match[5]} МСК`;
+    }
+
+    return raw;
   }
 
   function setStatus(text, type) {

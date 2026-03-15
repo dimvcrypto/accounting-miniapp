@@ -142,6 +142,14 @@
       margin-bottom: 16px;
     }
 
+    .manual-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 18px 16px;
+      margin-bottom: 16px;
+    }
+
     .import-icon {
       font-size: 36px;
       margin-bottom: 12px;
@@ -160,6 +168,55 @@
       color: var(--muted);
       line-height: 1.6;
       margin-bottom: 20px;
+    }
+
+    .manual-title {
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .manual-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .field-group {
+      margin-bottom: 12px;
+    }
+
+    .field-label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .input {
+      width: 100%;
+      background: #101010;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 12px;
+      font-family: inherit;
+      font-size: 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .input:focus {
+      border-color: var(--accent);
+    }
+
+    .input::placeholder {
+      color: #666;
     }
 
     .btn {
@@ -247,18 +304,6 @@
       margin-top: 12px;
     }
 
-    .loader {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border: 2px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-      margin-right: 6px;
-      vertical-align: middle;
-    }
-
     .result-card {
       display: none;
       background: var(--surface);
@@ -281,6 +326,11 @@
     .result-card.error {
       border-color: var(--error-border);
       box-shadow: inset 0 0 0 1px rgba(248, 113, 113, 0.08);
+    }
+
+    .result-card.info {
+      border-color: rgba(59, 130, 246, 0.28);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.08);
     }
 
     .result-icon {
@@ -306,6 +356,12 @@
       color: var(--danger);
       border-color: var(--error-border);
       background: rgba(248, 113, 113, 0.08);
+    }
+
+    .result-card.info .result-icon {
+      color: var(--accent);
+      border-color: rgba(59, 130, 246, 0.28);
+      background: rgba(59, 130, 246, 0.08);
     }
 
     .result-title {
@@ -342,7 +398,11 @@
       gap: 8px;
     }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 420px) {
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 </head>
 <body>
@@ -358,7 +418,6 @@
 </div>
 
 <div class="section active" id="tab-dashboard">
-
   <div class="grid-2">
     <div class="card">
       <div class="card-label">Баланс счетов</div>
@@ -408,11 +467,9 @@
   <div style="text-align:center;padding:10px 0;font-size:11px;color:var(--muted)">
     Данные из Google Sheets · только просмотр
   </div>
-
 </div>
 
 <div class="section" id="tab-contacts">
-
   <div class="result-card" id="sync-result">
     <div class="result-icon" id="sync-result-icon">✓</div>
     <div class="result-title" id="sync-result-title">Контакты синхронизированы</div>
@@ -439,6 +496,31 @@
     </div>
   </div>
 
+  <div class="result-card" id="manual-result">
+    <div class="result-icon" id="manual-result-icon">✓</div>
+    <div class="result-title" id="manual-result-title">Контакт добавлен</div>
+    <div class="result-desc" id="manual-result-desc">Контакт сохранён в записную книжку.</div>
+
+    <div class="result-meta">
+      <div class="row">
+        <span class="row-label">Статус</span>
+        <span id="manual-result-status">Успешно</span>
+      </div>
+      <div class="row">
+        <span class="row-label">ФИО</span>
+        <span id="manual-result-name">—</span>
+      </div>
+      <div class="row">
+        <span class="row-label">Ключ</span>
+        <span id="manual-result-key">—</span>
+      </div>
+    </div>
+
+    <div class="result-actions">
+      <button class="btn" onclick="closeManualResult()">Вернуться в интерфейс</button>
+    </div>
+  </div>
+
   <div class="import-block">
     <div class="import-icon">☁️</div>
     <div class="import-title">Синхронизация контактов</div>
@@ -448,6 +530,27 @@
     </div>
     <button class="btn" id="btn-google-sync" onclick="startGoogleContactsSync()">
       Синхронизировать Google Contacts
+    </button>
+  </div>
+
+  <div class="manual-block">
+    <div class="manual-title">Ручное добавление</div>
+    <div class="manual-desc">
+      Добавь один контакт вручную без доступа ко всем контактам Google.
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="manual-name">ФИО</label>
+      <input class="input" id="manual-name" type="text" placeholder="Иван Петров" maxlength="120" />
+    </div>
+
+    <div class="field-group">
+      <label class="field-label" for="manual-phone">Телефон</label>
+      <input class="input" id="manual-phone" type="tel" placeholder="+7 921 345-46-59" maxlength="32" />
+    </div>
+
+    <button class="btn" id="btn-manual-add" onclick="addManualContact()">
+      Добавить контакт
     </button>
   </div>
 
@@ -472,15 +575,15 @@
   </div>
 
   <div class="note">
-    Синхронизация берёт контакты из Google-аккаунта пользователя.<br>
-    Если в аккаунте нет контактов, импорт будет пустым.
+    Синхронизация Google берёт контакты из Google-аккаунта пользователя.<br>
+    Ручной режим добавляет один контакт напрямую в записную книжку.
   </div>
-
 </div>
 
 <script>
   const DASHBOARD_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/dashboard';
   const GOOGLE_CONTACTS_START_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/google-contacts-start';
+  const MANUAL_CONTACT_ADD_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/manual-contact-add';
 
   const tg = window.Telegram?.WebApp;
   const tgUser = tg?.initDataUnsafe?.user || null;
@@ -537,7 +640,6 @@
       document.getElementById('val-phys-credit').textContent = formatMoney(data.physCredit);
       document.getElementById('val-legal-credit').textContent = formatMoney(data.legalCredit);
       document.getElementById('val-updated').textContent = data.updated || '—';
-
     } catch (e) {
       console.error('Dashboard load error:', e);
       setDashboardError(e.message || 'Ошибка загрузки');
@@ -549,6 +651,7 @@
     const block = document.getElementById('status-block');
 
     hideSyncResult();
+    hideManualResult();
     switchTab('contacts');
 
     block.classList.add('visible');
@@ -581,13 +684,98 @@
       document.getElementById('st-withphone').textContent = 'Ожидание авторизации';
 
       window.location.href = data.authUrl;
-
     } catch (e) {
       console.error('Google sync start error:', e);
       setStatus('✗ Ошибка запуска', 'err');
       document.getElementById('st-withphone').textContent = 'Не удалось начать OAuth';
       document.getElementById('st-sent').textContent = e.message || 'Ошибка';
       setProgress(0);
+      btn.disabled = false;
+    }
+  }
+
+  async function addManualContact() {
+    const btn = document.getElementById('btn-manual-add');
+    const nameInput = document.getElementById('manual-name');
+    const phoneInput = document.getElementById('manual-phone');
+    const block = document.getElementById('status-block');
+
+    hideSyncResult();
+    hideManualResult();
+    switchTab('contacts');
+
+    const fullName = String(nameInput.value || '').trim();
+    const rawPhone = String(phoneInput.value || '').trim();
+    const key = normalizePhoneKey(rawPhone);
+
+    if (!fullName) {
+      showManualResultError('Укажи ФИО контакта.');
+      return;
+    }
+
+    if (!rawPhone) {
+      showManualResultError('Укажи номер телефона.');
+      return;
+    }
+
+    if (!key) {
+      showManualResultError('Телефон не удалось нормализовать. Проверь формат.');
+      return;
+    }
+
+    block.classList.add('visible');
+    setStatus('Сохраняю контакт...', 'warn');
+    document.getElementById('st-found').textContent = 'Ручной ввод';
+    document.getElementById('st-withphone').textContent = 'Подготовка данных';
+    document.getElementById('st-sent').textContent = '—';
+    setProgress(20);
+
+    btn.disabled = true;
+
+    try {
+      const payload = {
+        fullName,
+        phoneRaw: rawPhone,
+        phoneKey: key,
+        source: 'manual_entry',
+        importedBy: tgUser
+          ? [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ') || 'telegram_user'
+          : 'telegram_user'
+      };
+
+      const res = await fetch(MANUAL_CONTACT_ADD_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_) {}
+
+      if (!res.ok) {
+        throw new Error(data.message || ('HTTP ' + res.status));
+      }
+
+      setStatus('✓ Успешно', 'ok');
+      document.getElementById('st-withphone').textContent = 'Контакт сохранён';
+      document.getElementById('st-sent').textContent = key;
+      setProgress(100);
+
+      nameInput.value = '';
+      phoneInput.value = '';
+
+      showManualResultSuccess(fullName, key);
+    } catch (e) {
+      console.error('Manual add error:', e);
+      setStatus('✗ Ошибка', 'err');
+      document.getElementById('st-withphone').textContent = 'Контакт не сохранён';
+      document.getElementById('st-sent').textContent = e.message || 'Ошибка';
+      setProgress(0);
+
+      showManualResultError(e.message || 'Не удалось добавить контакт.');
+    } finally {
       btn.disabled = false;
     }
   }
@@ -602,7 +790,6 @@
     const imported = params.get('imported');
     const source = params.get('source') || 'Google Contacts';
     const error = params.get('message') || params.get('error');
-    const tab = params.get('tab');
 
     if (sync !== 'success' && sync !== 'error') {
       return;
@@ -614,6 +801,7 @@
     const statusBlock = document.getElementById('status-block');
     const btn = document.getElementById('btn-google-sync');
 
+    hideManualResult();
     btn.disabled = false;
     statusBlock.classList.remove('visible');
     resultCard.classList.add('visible');
@@ -628,6 +816,7 @@
       document.getElementById('sync-result-imported').textContent = imported ?? '0';
 
       setStatus('✓ Успешно', 'ok');
+      document.getElementById('st-found').textContent = source;
       document.getElementById('st-withphone').textContent = 'Синхронизация завершена';
       document.getElementById('st-sent').textContent = `Импортировано: ${imported ?? '0'}`;
       setProgress(100);
@@ -640,6 +829,7 @@
       document.getElementById('sync-result-imported').textContent = '0';
 
       setStatus('✗ Ошибка', 'err');
+      document.getElementById('st-found').textContent = source;
       document.getElementById('st-withphone').textContent = 'Синхронизация не завершена';
       document.getElementById('st-sent').textContent = error || 'Ошибка';
       setProgress(0);
@@ -649,16 +839,48 @@
     clearSyncQueryParams();
   }
 
+  function showManualResultSuccess(fullName, key) {
+    const resultCard = document.getElementById('manual-result');
+    resultCard.className = 'result-card visible success';
+
+    document.getElementById('manual-result-icon').textContent = '✓';
+    document.getElementById('manual-result-title').textContent = 'Контакт добавлен';
+    document.getElementById('manual-result-desc').textContent = 'Контакт сохранён в записную книжку.';
+    document.getElementById('manual-result-status').textContent = 'Успешно';
+    document.getElementById('manual-result-name').textContent = fullName;
+    document.getElementById('manual-result-key').textContent = key;
+  }
+
+  function showManualResultError(message) {
+    const resultCard = document.getElementById('manual-result');
+    resultCard.className = 'result-card visible error';
+
+    document.getElementById('manual-result-icon').textContent = '✕';
+    document.getElementById('manual-result-title').textContent = 'Ошибка добавления';
+    document.getElementById('manual-result-desc').textContent = message || 'Не удалось добавить контакт.';
+    document.getElementById('manual-result-status').textContent = 'Ошибка';
+    document.getElementById('manual-result-name').textContent = '—';
+    document.getElementById('manual-result-key').textContent = '—';
+  }
+
   function closeSyncResult() {
     hideSyncResult();
-    const btn = document.getElementById('btn-google-sync');
-    btn.disabled = false;
+    document.getElementById('btn-google-sync').disabled = false;
+    switchTab('contacts');
+  }
+
+  function closeManualResult() {
+    hideManualResult();
+    document.getElementById('btn-manual-add').disabled = false;
     switchTab('contacts');
   }
 
   function hideSyncResult() {
-    const resultCard = document.getElementById('sync-result');
-    resultCard.className = 'result-card';
+    document.getElementById('sync-result').className = 'result-card';
+  }
+
+  function hideManualResult() {
+    document.getElementById('manual-result').className = 'result-card';
   }
 
   function clearSyncQueryParams() {
@@ -667,6 +889,22 @@
       url.searchParams.delete(param);
     });
     window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+  }
+
+  function normalizePhoneKey(rawPhone) {
+    let digits = String(rawPhone || '').replace(/\D/g, '');
+
+    if (digits.startsWith('8') && digits.length === 11) {
+      digits = '7' + digits.slice(1);
+    } else if (digits.startsWith('9') && digits.length === 10) {
+      digits = '7' + digits;
+    }
+
+    if (digits.length < 11) {
+      return '';
+    }
+
+    return digits;
   }
 
   function setStatus(text, type) {

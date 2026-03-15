@@ -315,17 +315,14 @@
 <div class="section" id="tab-contacts">
 
   <div class="import-block">
-    <div class="import-icon">📋</div>
-    <div class="import-title">Импорт контактов</div>
+    <div class="import-icon">☁️</div>
+    <div class="import-title">Синхронизация контактов</div>
     <div class="import-desc">
-      Нажми кнопку — телефон запросит доступ к контактам.<br>
-      Все номера будут нормализованы и сохранены в Записную книжку.
+      Подключи Google-аккаунт и синхронизируй контакты<br>
+      в Google Sheets «Записная книжка».
     </div>
-    <button class="btn" id="btn-import" onclick="importContacts()">
-      Импортировать контакты
-    </button>
-    <button class="btn btn-outline" onclick="checkSupport()">
-      Проверить поддержку
+    <button class="btn" id="btn-google-sync" onclick="startGoogleContactsSync()">
+      Синхронизировать Google Contacts
     </button>
   </div>
 
@@ -336,29 +333,29 @@
     </div>
     <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
     <div class="status-line">
-      <span>Контактов найдено</span>
-      <span id="st-found">—</span>
+      <span>Источник</span>
+      <span id="st-found">Google Contacts</span>
     </div>
     <div class="status-line">
-      <span>С телефоном</span>
-      <span id="st-withphone">—</span>
+      <span>Состояние</span>
+      <span id="st-withphone">Ожидание</span>
     </div>
     <div class="status-line">
-      <span>Отправлено</span>
+      <span>Результат</span>
       <span id="st-sent" class="status-ok">—</span>
     </div>
   </div>
 
   <div class="note">
-    Контакт → нормализация номера → Google Sheets «Записная книжка».<br>
-    Дубли не проверяются на этом этапе.
+    Синхронизация берёт контакты из Google-аккаунта пользователя.<br>
+    Если в аккаунте нет контактов, импорт будет пустым.
   </div>
 
 </div>
 
 <script>
-  const WEBHOOK_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/contacts';
   const DASHBOARD_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/dashboard';
+  const GOOGLE_CONTACTS_START_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/google-contacts-start';
 
   const tg = window.Telegram?.WebApp;
   const tgUser = tg?.initDataUnsafe?.user || null;
@@ -387,20 +384,6 @@
     if (name === 'dashboard') {
       loadDashboard();
     }
-  }
-
-  function checkSupport() {
-    const block = document.getElementById('status-block');
-    block.classList.add('visible');
-
-    const supported = 'contacts' in navigator && !!navigator.contacts?.select;
-
-    document.getElementById('st-status').textContent = supported ? '✓ Поддерживается' : '✗ Не поддерживается';
-    document.getElementById('st-status').className = supported ? 'status-ok' : 'status-err';
-    document.getElementById('st-found').textContent = supported ? 'API доступен' : 'Нужен Android Chrome или iOS Safari 14.5+';
-    document.getElementById('st-withphone').textContent = '—';
-    document.getElementById('st-sent').textContent = '—';
-    setProgress(0);
   }
 
   async function loadDashboard() {
@@ -434,88 +417,47 @@
     }
   }
 
-  async function importContacts() {
-    const btn = document.getElementById('btn-import');
+  async function startGoogleContactsSync() {
+    const btn = document.getElementById('btn-google-sync');
     const block = document.getElementById('status-block');
 
     block.classList.add('visible');
-    setStatus('Запрашиваю доступ...', 'warn');
-    setProgress(10);
-
-    if (!('contacts' in navigator) || !navigator.contacts?.select) {
-      setStatus('✗ API не поддерживается', 'err');
-      document.getElementById('st-found').textContent = 'Нужен Android Chrome или iOS Safari 14.5+';
-      document.getElementById('st-withphone').textContent = '—';
-      document.getElementById('st-sent').textContent = '—';
-      setProgress(0);
-      return;
-    }
+    setStatus('Запрашиваю ссылку...', 'warn');
+    document.getElementById('st-found').textContent = 'Google Contacts';
+    document.getElementById('st-withphone').textContent = 'Подготовка OAuth';
+    document.getElementById('st-sent').textContent = '—';
+    setProgress(15);
 
     btn.disabled = true;
 
     try {
-      const contacts = await navigator.contacts.select(['name', 'tel'], { multiple: true });
-      const total = Array.isArray(contacts) ? contacts.length : 0;
-
-      setProgress(40);
-      document.getElementById('st-found').textContent = total;
-      setStatus('Обрабатываю...', 'warn');
-
-      const withPhone = contacts.filter(c => Array.isArray(c.tel) && c.tel.length > 0);
-      document.getElementById('st-withphone').textContent = withPhone.length;
-
-      const payload = withPhone.map(c => ({
-        name: Array.isArray(c.name) && c.name[0] ? c.name[0] : '',
-        phone: c.tel[0]
-      }));
-
-      setProgress(70);
-      setStatus('Отправляю...', 'warn');
-
-      const res = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contacts: payload,
-          imported_by: tgUser?.first_name || '',
-          user_id: tgUser?.id || '',
-          username: tgUser?.username || ''
-        })
+      const res = await fetch(GOOGLE_CONTACTS_START_URL, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
       });
 
-      let result = {};
-      try {
-        result = await res.json();
-      } catch (_) {
-        result = {};
+      if (!res.ok) {
+        throw new Error('HTTP ' + res.status);
       }
 
-      setProgress(100);
+      const data = await res.json();
 
-      if (res.ok) {
-        const importedCount = result.imported ?? payload.length;
-        const totalFound = result.total_found ?? total;
-        const withPhoneCount = result.with_phone ?? withPhone.length;
-
-        setStatus('✓ Готово', 'ok');
-        document.getElementById('st-found').textContent = totalFound;
-        document.getElementById('st-withphone').textContent = withPhoneCount;
-        document.getElementById('st-sent').textContent = importedCount + ' контактов';
-
-        if (tg) {
-          tg.showAlert('Импортировано ' + importedCount + ' контактов');
-        }
-      } else {
-        setStatus('✗ Ошибка сервера', 'err');
-        document.getElementById('st-sent').textContent = result.message || ('HTTP ' + res.status);
+      if (!data.authUrl) {
+        throw new Error('authUrl не получен');
       }
+
+      setProgress(60);
+      setStatus('Перенаправляю в Google...', 'warn');
+      document.getElementById('st-withphone').textContent = 'Ожидание авторизации';
+
+      window.location.href = data.authUrl;
 
     } catch (e) {
-      console.error('Import contacts error:', e);
-      setStatus('✗ Отменено', 'err');
-      document.getElementById('st-sent').textContent = e.message || 'Пользователь отменил';
+      console.error('Google sync start error:', e);
+      setStatus('✗ Ошибка запуска', 'err');
+      document.getElementById('st-withphone').textContent = 'Не удалось начать OAuth';
+      document.getElementById('st-sent').textContent = e.message || 'Ошибка';
       setProgress(0);
-    } finally {
       btn.disabled = false;
     }
   }

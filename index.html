@@ -598,6 +598,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     loadDashboard();
+    applySyncResultFromTelegram();
     applySyncResultFromQuery();
   });
 
@@ -815,6 +816,77 @@
 
   function repeatGoogleContactsSync() {
     startGoogleContactsSync();
+  }
+
+  function applySyncResultFromTelegram() {
+    const rawStartParam =
+      window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
+      new URLSearchParams(window.location.search).get('tgWebAppStartParam') ||
+      '';
+
+    if (!rawStartParam) return;
+
+    const startParam = String(rawStartParam).trim();
+
+    if (startParam.startsWith('sync_success_')) {
+      const imported = startParam.replace('sync_success_', '') || '0';
+
+      switchTab('contacts');
+
+      const resultCard = document.getElementById('sync-result');
+      const statusBlock = document.getElementById('status-block');
+      const btn = document.getElementById('btn-google-sync');
+
+      hideManualResult();
+      btn.disabled = false;
+      statusBlock.classList.remove('visible');
+      resultCard.className = 'result-card visible success';
+
+      document.getElementById('sync-result-icon').textContent = '✓';
+      document.getElementById('sync-result-title').textContent = 'Контакты синхронизированы';
+      document.getElementById('sync-result-desc').textContent = 'Импорт завершён успешно. Контакты загружены в записную книжку.';
+      document.getElementById('sync-result-status').textContent = 'Успешно';
+      document.getElementById('sync-result-imported').textContent = imported;
+      document.getElementById('sync-result-source').textContent = 'Google Contacts';
+
+      setStatus('✓ Успешно', 'ok');
+      document.getElementById('st-found').textContent = 'Google Contacts';
+      document.getElementById('st-withphone').textContent = 'Синхронизация завершена';
+      document.getElementById('st-sent').textContent = `Импортировано: ${imported}`;
+      setProgress(100);
+      statusBlock.classList.add('visible');
+
+      return;
+    }
+
+    if (startParam.startsWith('sync_error_')) {
+      const error = decodeURIComponent(startParam.replace('sync_error_', '') || 'sync_failed');
+
+      switchTab('contacts');
+
+      const resultCard = document.getElementById('sync-result');
+      const statusBlock = document.getElementById('status-block');
+      const btn = document.getElementById('btn-google-sync');
+
+      hideManualResult();
+      btn.disabled = false;
+      statusBlock.classList.remove('visible');
+      resultCard.className = 'result-card visible error';
+
+      document.getElementById('sync-result-icon').textContent = '✕';
+      document.getElementById('sync-result-title').textContent = 'Ошибка синхронизации';
+      document.getElementById('sync-result-desc').textContent = error || 'Во время синхронизации произошла ошибка. Попробуй ещё раз.';
+      document.getElementById('sync-result-status').textContent = 'Ошибка';
+      document.getElementById('sync-result-imported').textContent = '0';
+      document.getElementById('sync-result-source').textContent = 'Google Contacts';
+
+      setStatus('✗ Ошибка', 'err');
+      document.getElementById('st-found').textContent = 'Google Contacts';
+      document.getElementById('st-withphone').textContent = 'Синхронизация не завершена';
+      document.getElementById('st-sent').textContent = error || 'Ошибка';
+      setProgress(0);
+      statusBlock.classList.add('visible');
+    }
   }
 
   function applySyncResultFromQuery() {

@@ -583,6 +583,7 @@
 
   const tg = window.Telegram?.WebApp;
   const tgUser = tg?.initDataUnsafe?.user || null;
+  const tgInitData = window.Telegram?.WebApp?.initData || '';
 
   if (tg) {
     tg.ready();
@@ -618,7 +619,10 @@
 
       const res = await fetch(DASHBOARD_URL, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Init-Data': tgInitData
+        }
       });
 
       if (!res.ok) {
@@ -662,7 +666,10 @@
     try {
       const res = await fetch(GOOGLE_CONTACTS_START_URL, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Init-Data': tgInitData
+        }
       });
 
       if (!res.ok) {
@@ -741,7 +748,10 @@
 
       const res = await fetch(MANUAL_CONTACT_ADD_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Init-Data': tgInitData
+        },
         body: JSON.stringify(payload)
       });
 

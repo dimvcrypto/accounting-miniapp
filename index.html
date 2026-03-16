@@ -645,6 +645,12 @@
   const GOOGLE_CONTACTS_START_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/google-contacts-start';
   const MANUAL_CONTACT_ADD_URL = 'https://tommytommy02100.app.n8n.cloud/webhook/manual-contact-add';
 
+  const DASHBOARD_CACHE_KEY = 'accounting_miniapp_dashboard_cache_v1';
+  const DASHBOARD_CACHE_TTL_MS = 30 * 1000;
+
+  let dashboardMemoryCache = null;
+  let dashboardRequestInFlight = null;
+
   const tg = window.Telegram?.WebApp;
   const tgUser = tg?.initDataUnsafe?.user || null;
   const tgInitData = window.Telegram?.WebApp?.initData || '';
@@ -660,7 +666,15 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    loadDashboard();
+    const cached = getDashboardCache();
+
+    if (cached?.data) {
+      renderDashboard(cached.data);
+    } else {
+      setDashboardLoading();
+    }
+
+    loadDashboard({ force: !cached?.data, background: !!cached?.data });
     applySyncResultFromTelegram();
     applySyncResultFromQuery();
   });
@@ -674,41 +688,69 @@
     document.getElementById('tab-' + name).classList.add('active');
 
     if (name === 'dashboard') {
-      loadDashboard();
+      const cached = getDashboardCache();
+
+      if (cached?.data) {
+        renderDashboard(cached.data);
+      }
+
+      loadDashboard({ force: false, background: true });
     }
   }
 
-  async function loadDashboard() {
-    try {
-      setDashboardLoading();
+  async function loadDashboard(options = {}) {
+    const { force = false, background = false } = options;
 
-      const res = await fetch(DASHBOARD_URL, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Telegram-Init-Data': tgInitData
-        }
-      });
+    const cached = getDashboardCache();
+    const isFresh = cached && (Date.now() - cached.ts < DASHBOARD_CACHE_TTL_MS);
 
-      if (!res.ok) {
-        throw new Error('HTTP ' + res.status);
-      }
-
-      const data = await res.json();
-
-      document.getElementById('val-balance').textContent = formatMoney(data.balance);
-      document.getElementById('val-cash').textContent = formatMoney(data.cash);
-      document.getElementById('val-debit').textContent = formatMoney(data.debit);
-      document.getElementById('val-credit').textContent = formatMoney(data.credit);
-      document.getElementById('val-phys-debit').textContent = formatMoney(data.physDebit);
-      document.getElementById('val-legal-debit').textContent = formatMoney(data.legalDebit);
-      document.getElementById('val-phys-credit').textContent = formatMoney(data.physCredit);
-      document.getElementById('val-legal-credit').textContent = formatMoney(data.legalCredit);
-      document.getElementById('val-updated').textContent = formatUpdatedMsk(data.updated);
-    } catch (e) {
-      console.error('Dashboard load error:', e);
-      setDashboardError(e.message || 'Ошибка загрузки');
+    if (!force && isFresh && cached?.data) {
+      renderDashboard(cached.data);
+      return cached.data;
     }
+
+    if (dashboardRequestInFlight) {
+      return dashboardRequestInFlight;
+    }
+
+    if (!background && !cached?.data) {
+      setDashboardLoading();
+    }
+
+    dashboardRequestInFlight = (async () => {
+      try {
+        const res = await fetch(DASHBOARD_URL, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Telegram-Init-Data': tgInitData
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error('HTTP ' + res.status);
+        }
+
+        const data = await res.json();
+
+        setDashboardCache(data);
+        renderDashboard(data);
+
+        return data;
+      } catch (e) {
+        console.error('Dashboard load error:', e);
+
+        if (!cached?.data) {
+          setDashboardError(e.message || 'Ошибка загрузки');
+        }
+
+        throw e;
+      } finally {
+        dashboardRequestInFlight = null;
+      }
+    })();
+
+    return dashboardRequestInFlight;
   }
 
   function openAuthOutsideMiniApp(url) {
@@ -1115,6 +1157,53 @@
     const num = Number(value ?? 0);
     if (!Number.isFinite(num)) return '0 ₽';
     return new Intl.NumberFormat('ru-RU').format(num) + ' ₽';
+  }
+
+  function renderDashboard(data) {
+    document.getElementById('val-balance').textContent = formatMoney(data.balance);
+    document.getElementById('val-cash').textContent = formatMoney(data.cash);
+    document.getElementById('val-debit').textContent = formatMoney(data.debit);
+    document.getElementById('val-credit').textContent = formatMoney(data.credit);
+    document.getElementById('val-phys-debit').textContent = formatMoney(data.physDebit);
+    document.getElementById('val-legal-debit').textContent = formatMoney(data.legalDebit);
+    document.getElementById('val-phys-credit').textContent = formatMoney(data.physCredit);
+    document.getElementById('val-legal-credit').textContent = formatMoney(data.legalCredit);
+    document.getElementById('val-updated').textContent = formatUpdatedMsk(data.updated);
+  }
+
+  function setDashboardCache(data) {
+    const payload = {
+      ts: Date.now(),
+      data
+    };
+
+    dashboardMemoryCache = payload;
+
+    try {
+      localStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.error('Dashboard localStorage set error:', e);
+    }
+  }
+
+  function getDashboardCache() {
+    if (dashboardMemoryCache?.data) {
+      return dashboardMemoryCache;
+    }
+
+    try {
+      const raw = localStorage.getItem(DASHBOARD_CACHE_KEY);
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || !parsed.data || !parsed.ts) return null;
+
+      dashboardMemoryCache = parsed;
+      return parsed;
+    } catch (e) {
+      console.error('Dashboard localStorage read error:', e);
+      return null;
+    }
   }
 
   function setDashboardLoading() {
